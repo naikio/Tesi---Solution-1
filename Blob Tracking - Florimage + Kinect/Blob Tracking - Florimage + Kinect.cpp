@@ -43,7 +43,7 @@ int SHARPNESS = 100;
 #include "BlobDistance.h"
 
 //Custom Algorithms
-#include "bipartite-mincost.h"
+#include "bipartite-mincost.h" //Hungarian min-cost matching
 
 using namespace cv;
 using namespace std;
@@ -493,7 +493,7 @@ void UpdateModelBestMatchFirst(vector<FloorObject>& model, vector<FloorObject>& 
 
 }
 
-void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs, vector<vector<double>>& costMatrix){
+void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs, vector<vector<double>>& costMatrix, int alphaCost = 0, int deathCost = 0){
 
 	ComputeCostMatrix(costMatrix, modelBlobs, currentBlobs);
 
@@ -521,6 +521,19 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 			for (int i = currentBlobs.size(); i < modelBlobs.size(); i++){
 				costMatrix.push_back(vector<double>(modelBlobs.size(), 0));
 			}
+		}
+	}
+
+	int dim = costMatrix.size();
+	for (int i = 0; i < dim; i++){
+		vector<double> tempRow;
+		costMatrix.push_back(tempRow);
+		for (int j = 0; j < dim; j++){
+			costMatrix[i].push_back(alphaCost);
+			costMatrix[i + dim].push_back(deathCost);
+		}
+		for (int j = 0; j < dim; j++){
+			costMatrix[i + dim].push_back(5.5);
 		}
 	}
 
