@@ -7,7 +7,7 @@
 #define CROP_BOX_FILTERING
 //#define GET_PLANE_COEFFICIENTS  //used to search for floor plane coefficients (useful to retrieve plane coefficients the 1st time)
 #define PLANAR_PROJECTION false
-//#define PCL_VISUALIZER
+#define PCL_VISUALIZER
 //#define DRAW_TILES
 
 #define BEST_MATCH_FIRST 1
@@ -918,7 +918,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		createTrackbar("Sharpness", "Merged Channels", &SHARPNESS, 100);
 		imshow("Projection", floorProjection);
 		imshow("Merged Channels", mergedChannels);
-		waitKey(1000);
+		waitKey(100);
 
 #ifdef PCL_VISUALIZER
 		// PCL Visualizer
