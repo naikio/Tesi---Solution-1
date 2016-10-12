@@ -533,7 +533,7 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 			costMatrix[i + dim].push_back(deathCost);
 		}
 		for (int j = 0; j < dim; j++){
-			costMatrix[i + dim].push_back(5.5);
+			costMatrix[i + dim].push_back(0);
 		}
 	}
 
@@ -853,6 +853,9 @@ int _tmain(int argc, _TCHAR* argv[])
 			vector<vector<double>>().swap(costMatrix);
 			UpdateModelPositions(modelBlobs);
 			UpdateModelState(modelBlobs);
+			cout << "Model blobs: " << modelBlobs.size() << endl;
+			cout << "Current blobs: " << currentBlobs.size() << endl;
+
 		}
 
 		//reconversion to Uchar for better visualization
