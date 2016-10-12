@@ -409,6 +409,7 @@ void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& 
 		for (int prev_i = 0; prev_i < modelBlobs.size(); prev_i++){
 			double distance = SquaredDistance(currentBlobs[cur_i].box.center, modelBlobs[prev_i].averagePosition);
 			tempRow.push_back(distance);
+			cout << "Distance : " << distance << endl;
 		}
 
 		costMatrix.push_back(tempRow);
@@ -493,7 +494,7 @@ void UpdateModelBestMatchFirst(vector<FloorObject>& model, vector<FloorObject>& 
 
 }
 
-void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs, vector<vector<double>>& costMatrix, int alphaCost = 0, int deathCost = 0){
+void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs, vector<vector<double>>& costMatrix, int alphaCost = INT_MAX, int deathCost = INT_MAX){
 
 	ComputeCostMatrix(costMatrix, modelBlobs, currentBlobs);
 
@@ -524,6 +525,14 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 		}
 	}
 
+	if (currentBlobs.empty()){
+		for (int i = 0; i < modelBlobs.size(); i++)
+			// Hide all blobs (set visual counter to ZERO)
+			(modelBlobs[i].visualCounter <= 0) ? (modelBlobs[i].visualCounter--) : (modelBlobs[i].visualCounter = 0);
+		return;
+	}
+
+	// Expand matrix including alpha and death cost sections
 	int dim = costMatrix.size();
 	for (int i = 0; i < dim; i++){
 		vector<double> tempRow;
@@ -542,35 +551,45 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 
 	MinCostMatching(costMatrix, currentMatchings, modelMatchings);
 
-	for (int i = 0; i < currentBlobs.size(); i++){
+	for (int i = 0; i < currentMatchings.size(); i++){
 		
-		if (costMatrix[i][currentMatchings[i]] == 0){
-			//new Blob -> state: ALPHA
-			currentBlobs[i].visualCounter++;
-			modelBlobs.push_back(currentBlobs[i]);
+		cout << "[" << i << "] --> " << currentMatchings[i] << " = " << costMatrix[i][currentMatchings[i]] << endl;
+
+		if (i < currentBlobs.size()){
+			// I or II quadrant
+			if (currentMatchings[i] < modelBlobs.size()){
+				// I quadrant
+				if (costMatrix[i][currentMatchings[i]] == 0){
+					//new Blob -> state: ALPHA
+					currentBlobs[i].visualCounter++;
+					modelBlobs.push_back(currentBlobs[i]);
+				}
+				else {
+					modelBlobs[currentMatchings[i]].box = currentBlobs[i].box;
+					modelBlobs[currentMatchings[i]].contour = currentBlobs[i].contour;
+					modelBlobs[currentMatchings[i]].visualCounter++;
+				}
+			}
+			else {
+				//II quadrant --> alpha blob
+				currentBlobs[i].visualCounter++;
+				modelBlobs.push_back(currentBlobs[i]);
+			}
 		}
 		else {
-			modelBlobs[currentMatchings[i]].box = currentBlobs[i].box;
-			modelBlobs[currentMatchings[i]].contour = currentBlobs[i].contour;
-			modelBlobs[currentMatchings[i]].visualCounter++;
+			// III or IV quadrant
+			if (currentMatchings[i] < modelBlobs.size()){
+				// III quadrant --> hide blob
+				if (modelBlobs[currentMatchings[i]].visualCounter <= 0)
+					modelBlobs[currentMatchings[i]].visualCounter--;
+				else
+					modelBlobs[currentMatchings[i]].visualCounter = 0;
+			}
+				// IV quadrant: do nothing
 		}
-	}
 
-	if (currentBlobs.empty())
-		for (int i = 0; i < modelBlobs.size(); i++)
-			// Hide all blobs (set visual counter to ZERO)
-			(modelBlobs[i].visualCounter <= 0) ? (modelBlobs[i].visualCounter--) : (modelBlobs[i].visualCounter=0);
 
-	for (int i = 0; i < modelBlobs.size(); i++){
 
-		if (costMatrix[modelMatchings[i]][i] == 0){
-			// State: HIDDEN
-			if (modelBlobs[i].visualCounter <= 0)
-				modelBlobs[i].visualCounter--;
-			else
-				modelBlobs[i].visualCounter = 0;
-			
-		}
 	}
 
 	vector<int>().swap(currentMatchings);
@@ -850,7 +869,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			///////// HUNGARIAN
 			vector<vector<double>> costMatrix;
 			UpdateModelGlobalMinCost(modelBlobs, currentBlobs, costMatrix);
-			vector<vector<double>>().swap(costMatrix);
 			UpdateModelPositions(modelBlobs);
 			UpdateModelState(modelBlobs);
 			cout << "Model blobs: " << modelBlobs.size() << endl;
@@ -900,7 +918,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		createTrackbar("Sharpness", "Merged Channels", &SHARPNESS, 100);
 		imshow("Projection", floorProjection);
 		imshow("Merged Channels", mergedChannels);
-		waitKey(100);
+		waitKey(1000);
 
 #ifdef PCL_VISUALIZER
 		// PCL Visualizer
