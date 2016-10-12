@@ -840,6 +840,8 @@ int _tmain(int argc, _TCHAR* argv[])
 			vector<vector<double>>().swap(costMatrix);
 			UpdateModelPositions(modelBlobs);
 			UpdateModelState(modelBlobs);
+			cout << "Model blobs: " << modelBlobs.size() << endl;
+			cout << "Current blobs: " << currentBlobs.size() << endl;
 		}
 
 		//reconversion to Uchar for better visualization
