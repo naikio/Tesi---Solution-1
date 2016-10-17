@@ -41,6 +41,7 @@ int SHARPNESS = 100;
 //Custom STRUCTs
 #include "FloorObject.h"
 #include "BlobDistance.h"
+#include "KinectObject.h"
 
 //Custom Algorithms
 #include "bipartite-mincost.h"
@@ -348,7 +349,7 @@ void PointCloudXYPlaneToMat(PointCloud<PointXYZRGB>::Ptr pointCloud, Mat& floorP
 	}
 }
 
-void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>& floorBlobs){
+void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>& floorBlobs, PointCloud<PointXYZRGB>::Ptr pointCloud, float topLeftX, float topLeftY){
 	Mat binaryFloor = floor >= binaryThreshold;
 	//dilate(floorProjection, floorProjection, Mat(), Point(1, 2), 1);
 	vector<vector<Point> > contours;
@@ -363,17 +364,35 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 		Mat(contours[i]).convertTo(pointsf, CV_32F);
 		RotatedRect box = fitEllipse(pointsf);
 		if ((box.size.height > 0.25*SHARPNESS) || (box.size.width > 0.25*SHARPNESS)){
-			FloorObject temp;
-			temp.box = box;
-			temp.contour = contours[i];
+			FloorObject blob_temp;
+			blob_temp.box = box;
+
+
+			PointCloud<PointXYZRGB>::Ptr pCloud_temp(new PointCloud<PointXYZRGB>());
+			for (PointCloud<PointXYZRGB>::iterator it = pointCloud->points.begin(); it < pointCloud->points.end(); it++){
+				Point2f p;
+				p.x = (it->x - topLeftX)*SHARPNESS;
+				p.y = (it->y - topLeftY)*SHARPNESS;
+				if (pointPolygonTest(contours[i], p, false) > 0){
+					//Point is inside contour
+					pCloud_temp->push_back(*it);
+
+					blob_temp.redHistogram[it->r]++;
+					blob_temp.blueHistogram[it->b]++;
+					blob_temp.greenHistogram[it->g]++;
+				}
+			}
+			if (pCloud_temp->size()!=0)
+				blob_temp.centroid = ComputePointCloudCentroid(pCloud_temp);
+			blob_temp.contour = contours[i];
 			uchar b = rand() % 255;
 			uchar g = rand() % 255;
 			uchar r = rand() % 255;
-			temp.color = Scalar(b, g, r);
+			blob_temp.color = Scalar(b, g, r);
 			//temp.positions.push_back(box.center);
-			temp.averagePosition = box.center;
-			temp.visualCounter = 0;
-			floorBlobs.push_back(temp);
+			blob_temp.averagePosition = box.center;
+			blob_temp.visualCounter = 0;
+			floorBlobs.push_back(blob_temp);
 		}
 	}
 }
@@ -407,8 +426,15 @@ void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& 
 	for (int cur_i = 0; cur_i < currentBlobs.size(); cur_i++){
 		vector<double> tempRow;
 		for (int prev_i = 0; prev_i < modelBlobs.size(); prev_i++){
+
+			double redDistance = compareHist(currentBlobs[cur_i].redHistogram, modelBlobs[prev_i].redHistogram, CV_COMP_CORREL);
+			double blueDistance = compareHist(currentBlobs[cur_i].blueHistogram, modelBlobs[prev_i].blueHistogram, CV_COMP_CORREL);
+			double greenDistance = compareHist(currentBlobs[cur_i].greenHistogram, modelBlobs[prev_i].greenHistogram, CV_COMP_CORREL);
+
+			double rgbDistance = redDistance*redDistance + blueDistance*blueDistance + greenDistance*greenDistance;
+
 			double distance = SquaredDistance(currentBlobs[cur_i].box.center, modelBlobs[prev_i].averagePosition);
-			tempRow.push_back(distance);
+			tempRow.push_back(rgbDistance);
 		}
 
 		costMatrix.push_back(tempRow);
@@ -467,7 +493,7 @@ void UpdateModelBestMatchFirst(vector<FloorObject>& model, vector<FloorObject>& 
 
 		if (both_not_found){
 			vector<FloorObject>::iterator matching;
-			matching = find_if(model.begin(), model.end(), [&i](FloorObject obj) {return obj.averagePosition == i->previous.averagePosition; });
+			matching = find_if(model.begin(), model.end(), [&i](const FloorObject& obj) {return obj.averagePosition == i->previous.averagePosition; });
 			//Update correspondent element inside the model
 			matching->box = i->current.box;
 			matching->contour = i->current.contour;
@@ -530,6 +556,10 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 	MinCostMatching(costMatrix, currentMatchings, modelMatchings);
 
 	for (int i = 0; i < currentBlobs.size(); i++){
+
+		PointCloud<PointXYZRGB>::Ptr pCloudTemp;
+
+		
 		
 		if (costMatrix[i][currentMatchings[i]] == 0){
 			//new Blob -> state: ALPHA
@@ -592,7 +622,7 @@ void UpdateModelState(vector<FloorObject>& modelBlobs){
 			i->state = dead;
 	}
 
-	modelBlobs.erase(remove_if(modelBlobs.begin(), modelBlobs.end(), [](FloorObject obj) {return obj.state == dead; }), modelBlobs.end());
+	modelBlobs.erase(remove_if(modelBlobs.begin(), modelBlobs.end(), [](const FloorObject& obj) {return obj.state == dead; }), modelBlobs.end());
 
 }
 
@@ -822,7 +852,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		//////////////////////////////
 		/////  BLOB DETECTION - FLOOR
 		/////////////////////////////
-		FindFloorBlobsContours(floor, 20, currentBlobs);
+		FindFloorBlobsContours(floor, 20, currentBlobs, pointCloud, topLeftX, topLeftY);
 		if (modelBlobs.empty()){
 			modelBlobs.swap(currentBlobs);
 		}
@@ -849,8 +879,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		contrastStretching(floorProjection);
 
 		//////////////////////////
-		///// Put infos together
-		/////////////////////////
+		/////  Put infos together
+		//////////////////////////
 		Mat3b mergedChannels(floorProjection.rows, floorProjection.cols, Vec3b(0, 0, 0));
 
 		for (int r = 0; r < mergedChannels.rows; r++){
@@ -878,7 +908,6 @@ int _tmain(int argc, _TCHAR* argv[])
 				line(mergedChannels, (vertices[1] + vertices[2]), (vertices[3] + vertices[0]), it->color);
 			}
 		}
-
 
 		//Show results
 		resize(mergedChannels, mergedChannels, Size(1200, 900), CV_INTER_CUBIC);

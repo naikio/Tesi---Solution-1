@@ -12,7 +12,7 @@ typedef struct BlobDistance{
 	//used for sorting
 	bool operator<(const BlobDistance& bDist) const{ return distance < bDist.distance; }
 
-	bool has_same_previous_blob(FloorObject previous_blob) const { return previous_blob == previous; }
+	bool has_same_previous_blob(const FloorObject& previous_blob) const { return previous_blob == previous; }
 
 } BlobDistance;
 
