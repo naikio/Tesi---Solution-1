@@ -20,9 +20,9 @@ typedef struct FloorObject{
 	int visualCounter = 0;
 	State state = alpha;
 	PointXYZRGB centroid;
-	vector<int> redHistogram = vector<int>(256, 0);
-	vector<int> blueHistogram = vector<int>(256, 0);
-	vector<int> greenHistogram = vector<int>(256, 0);
+	Mat redHistogram = Mat(Size(1, 256), CV_32FC1, Scalar(0));
+	Mat blueHistogram = Mat(Size(1, 256), CV_32FC1, Scalar(0));
+	Mat greenHistogram = Mat(Size(1, 256), CV_32FC1, Scalar(0));
 
 	bool operator==(const FloorObject& obj) const{ return (box.center == obj.box.center && box.size == obj.box.size); }
 

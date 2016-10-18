@@ -377,9 +377,9 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 					//Point is inside contour
 					pCloud_temp->push_back(*it);
 
-					blob_temp.redHistogram[it->r]++;
-					blob_temp.blueHistogram[it->b]++;
-					blob_temp.greenHistogram[it->g]++;
+					blob_temp.redHistogram.at<float>(it->r, 0)++;
+					blob_temp.blueHistogram.at<float>(it->b, 0)++;
+					blob_temp.greenHistogram.at<float>(it->g, 0)++;
 				}
 			}
 			if (pCloud_temp->size()!=0)
@@ -418,6 +418,7 @@ void ComputeBlobDistances(vector<BlobDistance>& squaredDistances, vector<FloorOb
 	sort(squaredDistances.begin(), squaredDistances.end());
 }
 
+
 void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs){
 
 	//erase costMatrix to ensure we start from scratch
@@ -427,20 +428,28 @@ void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& 
 		vector<double> tempRow;
 		for (int prev_i = 0; prev_i < modelBlobs.size(); prev_i++){
 
-			double redDistance = compareHist(currentBlobs[cur_i].redHistogram, modelBlobs[prev_i].redHistogram, CV_COMP_CORREL);
-			double blueDistance = compareHist(currentBlobs[cur_i].blueHistogram, modelBlobs[prev_i].blueHistogram, CV_COMP_CORREL);
-			double greenDistance = compareHist(currentBlobs[cur_i].greenHistogram, modelBlobs[prev_i].greenHistogram, CV_COMP_CORREL);
+			/// Establish the number of bins
+			int histSize = 256;
 
-			double rgbDistance = redDistance*redDistance + blueDistance*blueDistance + greenDistance*greenDistance;
+			/// Set the ranges ( for B,G,R) )
+			float range[] = { 0, 256 };
+			const float* histRange = { range };
+
+			bool uniform = true; bool accumulate = false;
+
+			double rgbDistance = compareHist(currentBlobs[cur_i].redHistogram, modelBlobs[prev_i].redHistogram, CV_COMP_BHATTACHARYYA);
 
 			double distance = SquaredDistance(currentBlobs[cur_i].box.center, modelBlobs[prev_i].averagePosition);
-			tempRow.push_back(rgbDistance);
+			tempRow.push_back(distance);
 		}
 
 		costMatrix.push_back(tempRow);
 		vector<double>().swap(tempRow);
 	}
 }
+
+
+
 
 void IdentifyFloorBlobs(vector<BlobDistance>& distances, vector<FloorObject>& previousBlobs, vector<FloorObject>& currentBlobs, vector<FloorObject>& trackedBlobs){
 	vector <FloorObject> alreadyDetected;
