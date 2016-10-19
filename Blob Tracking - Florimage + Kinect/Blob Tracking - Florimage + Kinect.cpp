@@ -369,18 +369,29 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 
 
 			PointCloud<PointXYZRGB>::Ptr pCloud_temp(new PointCloud<PointXYZRGB>());
+			Mat redHistogram = Mat(Size(1, 256), CV_32FC1, Scalar(0));
+			Mat blueHistogram = Mat(Size(1, 256), CV_32FC1, Scalar(0));
+			Mat greenHistogram = Mat(Size(1, 256), CV_32FC1, Scalar(0));
 			for (PointCloud<PointXYZRGB>::iterator it = pointCloud->points.begin(); it < pointCloud->points.end(); it++){
 				Point2f p;
 				p.x = (it->x - topLeftX)*SHARPNESS;
 				p.y = (it->y - topLeftY)*SHARPNESS;
+
+
+
 				if (pointPolygonTest(contours[i], p, false) > 0){
 					//Point is inside contour
 					pCloud_temp->push_back(*it);
 
-					blob_temp.redHistogram.at<float>(it->r, 0)++;
-					blob_temp.blueHistogram.at<float>(it->b, 0)++;
-					blob_temp.greenHistogram.at<float>(it->g, 0)++;
+					redHistogram.at<float>(it->r, 0)++;
+					blueHistogram.at<float>(it->b, 0)++;
+					greenHistogram.at<float>(it->g, 0)++;
 				}
+			}
+			for (int i = 0; i < 256; i++){
+				blob_temp.bgrHistogram.push_back(blueHistogram.at<float>(i));
+				blob_temp.bgrHistogram.push_back(greenHistogram.at<float>(i));
+				blob_temp.bgrHistogram.push_back(redHistogram.at<float>(i));
 			}
 			if (pCloud_temp->size()!=0)
 				blob_temp.centroid = ComputePointCloudCentroid(pCloud_temp);
@@ -418,6 +429,14 @@ void ComputeBlobDistances(vector<BlobDistance>& squaredDistances, vector<FloorOb
 	sort(squaredDistances.begin(), squaredDistances.end());
 }
 
+double CompareHistogramDistance(FloorObject& blob1, FloorObject& blob2){
+
+	if (blob1.bgrHistogram.empty() || blob2.bgrHistogram.empty())
+		return 1.0;
+	else
+		return compareHist(blob1.bgrHistogram, blob2.bgrHistogram, CV_COMP_BHATTACHARYYA);
+
+}
 
 void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs){
 
@@ -428,19 +447,10 @@ void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& 
 		vector<double> tempRow;
 		for (int prev_i = 0; prev_i < modelBlobs.size(); prev_i++){
 
-			/// Establish the number of bins
-			int histSize = 256;
-
-			/// Set the ranges ( for B,G,R) )
-			float range[] = { 0, 256 };
-			const float* histRange = { range };
-
-			bool uniform = true; bool accumulate = false;
-
-			double rgbDistance = compareHist(currentBlobs[cur_i].redHistogram, modelBlobs[prev_i].redHistogram, CV_COMP_BHATTACHARYYA);
 
 			double distance = SquaredDistance(currentBlobs[cur_i].box.center, modelBlobs[prev_i].averagePosition);
-			tempRow.push_back(distance);
+			double rgbDistance = CompareHistogramDistance(currentBlobs[cur_i], modelBlobs[prev_i]);
+			tempRow.push_back(rgbDistance);
 		}
 
 		costMatrix.push_back(tempRow);
@@ -924,7 +934,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		createTrackbar("Sharpness", "Merged Channels", &SHARPNESS, 100);
 		imshow("Projection", floorProjection);
 		imshow("Merged Channels", mergedChannels);
-		waitKey(100);
+		waitKey(10);
 
 #ifdef PCL_VISUALIZER
 		// PCL Visualizer
