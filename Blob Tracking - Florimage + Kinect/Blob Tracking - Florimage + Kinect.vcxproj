@@ -94,7 +94,6 @@
     <ClInclude Include="BlobDistance.h" />
     <ClInclude Include="FloorObject.h" />
     <ClInclude Include="frameset.h" />
-    <ClInclude Include="KinectObject.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>

@@ -42,9 +42,6 @@
     <ClInclude Include="bipartite-mincost.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="KinectObject.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />

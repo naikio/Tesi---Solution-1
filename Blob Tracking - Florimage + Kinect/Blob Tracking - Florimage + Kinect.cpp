@@ -41,7 +41,6 @@ int SHARPNESS = 100;
 //Custom STRUCTs
 #include "FloorObject.h"
 #include "BlobDistance.h"
-#include "KinectObject.h"
 
 //Custom Algorithms
 #include "bipartite-mincost.h"
@@ -429,13 +428,12 @@ void ComputeBlobDistances(vector<BlobDistance>& squaredDistances, vector<FloorOb
 	sort(squaredDistances.begin(), squaredDistances.end());
 }
 
-double CompareHistogramDistance(FloorObject& blob1, FloorObject& blob2){
+double HistogramDistance(FloorObject& blob1, FloorObject& blob2){
 
 	if (blob1.bgrHistogram.empty() || blob2.bgrHistogram.empty())
-		return 1.0;
+		return 1.0; //Maximum distance if using CV_COMP_BHATTACARYYA
 	else
 		return compareHist(blob1.bgrHistogram, blob2.bgrHistogram, CV_COMP_BHATTACHARYYA);
-
 }
 
 void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs){
@@ -447,9 +445,8 @@ void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& 
 		vector<double> tempRow;
 		for (int prev_i = 0; prev_i < modelBlobs.size(); prev_i++){
 
-
 			double distance = SquaredDistance(currentBlobs[cur_i].box.center, modelBlobs[prev_i].averagePosition);
-			double rgbDistance = CompareHistogramDistance(currentBlobs[cur_i], modelBlobs[prev_i]);
+			double rgbDistance = HistogramDistance(currentBlobs[cur_i], modelBlobs[prev_i]);
 			tempRow.push_back(rgbDistance);
 		}
 
