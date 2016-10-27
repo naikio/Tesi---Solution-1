@@ -13,14 +13,18 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 8
-#define DEATH_PARAM 12
+#define ALPHA_PARAM 35
+#define DEATH_PARAM 25
+#define T_0 0.5
+#define LAMBDA 0.75 //must be a value between 0 and 1
+
+#define BLOB_RADIUS 0.4
 
 int SHARPNESS = 100;
-//OPENCV 2.4.10
-#include <opencv2\opencv.hpp>
 
 #include <Windows.h>
+//OPENCV 2.4.10
+#include <opencv2\opencv.hpp>
 //Kinect framework 
 #include <Kinect.h>
 #include "acquisitionkinect2.h"
@@ -376,9 +380,12 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 				p.x = (it->x - topLeftX)*SHARPNESS;
 				p.y = (it->y - topLeftY)*SHARPNESS;
 
+				Point2f c = box.center;
 
+				double sqrdRadius = (BLOB_RADIUS*SHARPNESS)*(BLOB_RADIUS*SHARPNESS);
 
-				if (pointPolygonTest(contours[i], p, false) > 0){
+				//if (pointPolygonTest(contours[i], p, false) > 0){    // Point Inside CONTOUR
+				if ((pow((p.x - c.x), 2) + pow((p.y - c.y), 2)) < (sqrdRadius)){ //Point inside CIRCLE
 					//Point is inside contour
 					pCloud_temp->push_back(*it);
 
@@ -392,6 +399,8 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 				blob_temp.bgrHistogram.push_back(greenHistogram.at<float>(i));
 				blob_temp.bgrHistogram.push_back(redHistogram.at<float>(i));
 			}
+			// Normalize all values between 0 and 1
+			normalize(blob_temp.bgrHistogram, blob_temp.bgrHistogram, 1.0, 0.0, NORM_MINMAX, -1, Mat());
 			if (pCloud_temp->size()!=0)
 				blob_temp.centroid = ComputePointCloudCentroid(pCloud_temp);
 			blob_temp.contour = contours[i];
@@ -402,12 +411,13 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 			//temp.positions.push_back(box.center);
 			blob_temp.averagePosition = box.center;
 			blob_temp.visualCounter = 0;
+			blob_temp.confidence = T_0;
 			floorBlobs.push_back(blob_temp);
 		}
 	}
 }
 
-double SquaredDistance(Point2f a, Point2f b){
+double SquaredDistance(Point2d a, Point2d b){
 	double dx = a.x - b.x;
 	double dy = a.y - b.y;
 
@@ -447,16 +457,15 @@ void ComputeCostMatrix(vector<vector<double>>& costMatrix, vector<FloorObject>& 
 
 			double distance = SquaredDistance(currentBlobs[cur_i].box.center, modelBlobs[prev_i].averagePosition);
 			double rgbDistance = HistogramDistance(currentBlobs[cur_i], modelBlobs[prev_i]);
-			tempRow.push_back(rgbDistance);
+
+			double totalDistance = SquaredDistance(Point2d(distance, 0), Point2d(rgbDistance, 0));
+			tempRow.push_back(totalDistance/modelBlobs[prev_i].confidence);
 		}
 
 		costMatrix.push_back(tempRow);
 		vector<double>().swap(tempRow);
 	}
 }
-
-
-
 
 void IdentifyFloorBlobs(vector<BlobDistance>& distances, vector<FloorObject>& previousBlobs, vector<FloorObject>& currentBlobs, vector<FloorObject>& trackedBlobs){
 	vector <FloorObject> alreadyDetected;
@@ -535,6 +544,52 @@ void UpdateModelBestMatchFirst(vector<FloorObject>& model, vector<FloorObject>& 
 
 }
 
+void UpdateBlobColorDistribution(FloorObject& currentBlob, FloorObject& modelBlob){
+
+	for (int i = 0; i < modelBlob.bgrHistogram.size(); i++){
+		modelBlob.bgrHistogram[i] = modelBlob.bgrHistogram[i] + currentBlob.bgrHistogram[i];
+		modelBlob.bgrHistogram[i] /= 2;
+	}
+
+}
+
+void UpdateAveragePositionOfModelBlob(FloorObject& modelBlob){
+
+	//update average position:
+	Point2f p = modelBlob.averagePosition;
+	Point2f new_p = modelBlob.box.center;
+	float deltaX = (new_p.x - p.x) / 2;
+	float deltaY = (new_p.y - p.y) / 2;
+	modelBlob.averagePosition = Point2f(((p.x + (2 * new_p.x)) / 3), (p.y + (2 * new_p.y)) / 3);
+	modelBlob.averagePosition.x += deltaX;
+	modelBlob.averagePosition.y += deltaY;
+
+}
+
+void UpdateConfidenceScore(FloorObject& modelBlob){
+	
+	if (modelBlob.state == stable){
+		double modifier;
+		(modelBlob.visualCounter <= 0) ? modifier = 0 : modifier = 1;
+		modelBlob.confidence = modelBlob.confidence*LAMBDA + modifier*(1 - LAMBDA);
+	}
+}
+
+void AssociateCurrentBlobWithModel(FloorObject& currentBlob, FloorObject& modelBlob){
+
+	modelBlob.box = currentBlob.box;
+	modelBlob.contour = currentBlob.contour;
+	modelBlob.visualCounter++;
+
+	//FEATURES UPDATE:
+	//update color distribution
+	UpdateBlobColorDistribution(currentBlob, modelBlob);
+	//update positions
+	UpdateAveragePositionOfModelBlob(modelBlob);
+	//update confidence score
+	UpdateConfidenceScore(modelBlob);
+}
+
 void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs, vector<vector<double>>& costMatrix){
 
 	ComputeCostMatrix(costMatrix, modelBlobs, currentBlobs);
@@ -573,9 +628,7 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 
 	for (int i = 0; i < currentBlobs.size(); i++){
 
-		PointCloud<PointXYZRGB>::Ptr pCloudTemp;
-
-		
+		PointCloud<PointXYZRGB>::Ptr pCloudTemp;		
 		
 		if (costMatrix[i][currentMatchings[i]] == 0){
 			//new Blob -> state: ALPHA
@@ -583,9 +636,8 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 			modelBlobs.push_back(currentBlobs[i]);
 		}
 		else {
-			modelBlobs[currentMatchings[i]].box = currentBlobs[i].box;
-			modelBlobs[currentMatchings[i]].contour = currentBlobs[i].contour;
-			modelBlobs[currentMatchings[i]].visualCounter++;
+			// Matching found
+			AssociateCurrentBlobWithModel(currentBlobs[i], modelBlobs[currentMatchings[i]]);
 		}
 	}
 
@@ -598,11 +650,7 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 
 		if (costMatrix[modelMatchings[i]][i] == 0){
 			// State: HIDDEN
-			if (modelBlobs[i].visualCounter <= 0)
-				modelBlobs[i].visualCounter--;
-			else
-				modelBlobs[i].visualCounter = 0;
-			
+			(modelBlobs[i].visualCounter <= 0) ? (modelBlobs[i].visualCounter--) : (modelBlobs[i].visualCounter = 0);
 		}
 	}
 
@@ -610,25 +658,27 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 	vector<int>().swap(modelMatchings);
 }
 
-void UpdateModelPositions(vector<FloorObject>& modelBlobs){
-
-	for (vector<FloorObject>::iterator i = modelBlobs.begin(); i < modelBlobs.end(); i++){
-		//update average position:
-		Point2f p = i->averagePosition;
-		Point2f new_p = i->box.center;
-		float deltaX = (new_p.x - p.x) / 2;
-		float deltaY = (new_p.y - p.y) / 2;
-		i->averagePosition = Point2f(((p.x + (2 * new_p.x)) / 3), (p.y + (2 * new_p.y)) / 3);
-		i->averagePosition.x += deltaX;
-		i->averagePosition.y += deltaY;
-	}
-}
+//void UpdateModelPositions(vector<FloorObject>& modelBlobs){
+//
+//	for (vector<FloorObject>::iterator i = modelBlobs.begin(); i < modelBlobs.end(); i++){
+//		//update average position:
+//		Point2f p = i->averagePosition;
+//		Point2f new_p = i->box.center;
+//		float deltaX = (new_p.x - p.x) / 2;
+//		float deltaY = (new_p.y - p.y) / 2;
+//		i->averagePosition = Point2f(((p.x + (2 * new_p.x)) / 3), (p.y + (2 * new_p.y)) / 3);
+//		i->averagePosition.x += deltaX;
+//		i->averagePosition.y += deltaY;
+//	}
+//}
 
 void UpdateModelState(vector<FloorObject>& modelBlobs){
 	
 	for (vector<FloorObject>::iterator i = modelBlobs.begin(); i < modelBlobs.end(); i++){
 
-		if (i->visualCounter > 0 && (i->state == hidden || i->state == stable))
+		if (i->visualCounter == 0 && i->state == alpha)
+			i->state = dead;
+		else if (i->visualCounter > 0 && (i->state == hidden || i->state == stable))
 			i->state = stable;
 		else if (i->visualCounter >= ALPHA_PARAM)
 			i->state = stable;
@@ -641,7 +691,6 @@ void UpdateModelState(vector<FloorObject>& modelBlobs){
 	modelBlobs.erase(remove_if(modelBlobs.begin(), modelBlobs.end(), [](const FloorObject& obj) {return obj.state == dead; }), modelBlobs.end());
 
 }
-
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -796,7 +845,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		pointCloud2->clear();
 #endif
 
-
 		///////////////////////////
 		/////////// PLANE DETECTION
 		///////////////////////////
@@ -842,15 +890,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			);
 		transformPointCloud(*pointCloud, *pointCloud, transformation);
 
-		///////////////////////////
-		///// Centroid Calculation
-		///////////////////////////
-		PointXYZRGB sphereCenter = ComputePointCloudCentroid(pointCloud);
-
-#ifdef PCL_VISUALIZER
-		//PCLviewer->removeShape("Centroid Sphere");
-		//PCLviewer->addSphere(sphereCenter, 0.2, "Centroid Sphere");
-#endif
 		///////////////////////////////////////
 		///////////		POINTCLOUD TO MAT
 		//////////////////////////////////////
@@ -865,9 +904,9 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		PointCloudXYPlaneToMat(pointCloud, floorProjection, topLeftX, topLeftY, bottomRightX, bottomRightY, depthHeight, depthWidth);
 
-		//////////////////////////////
-		/////  BLOB DETECTION - FLOOR
-		/////////////////////////////
+		//////////////////////////////////
+		/////////  BLOB DETECTION - FLOOR
+		//////////////////////////////////
 		FindFloorBlobsContours(floor, 20, currentBlobs, pointCloud, topLeftX, topLeftY);
 		if (modelBlobs.empty()){
 			modelBlobs.swap(currentBlobs);
@@ -884,7 +923,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			vector<vector<double>> costMatrix;
 			UpdateModelGlobalMinCost(modelBlobs, currentBlobs, costMatrix);
 			vector<vector<double>>().swap(costMatrix);
-			UpdateModelPositions(modelBlobs);
+			// UpdateModelPositions(modelBlobs);      ORA LO FA GIA' DURANTE LA FASE DI MATCHING
 			UpdateModelState(modelBlobs);
 			cout << "Model blobs: " << modelBlobs.size() << endl;
 			cout << "Current blobs: " << currentBlobs.size() << endl;
@@ -908,7 +947,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 		}
 
-		circle(mergedChannels, Point((sphereCenter.x - topLeftX)*SHARPNESS, (sphereCenter.y - topLeftY)*SHARPNESS), 6, Scalar(255, 0, 0));
 		for (vector<FloorObject>::iterator it = modelBlobs.begin(); it < modelBlobs.end(); it++){
 
 			if (it->state == stable){
@@ -920,6 +958,7 @@ int _tmain(int argc, _TCHAR* argv[])
 					vertices[a].y = vertices[a].y / 2;
 				}
 				ellipse(mergedChannels, it->box, it->color, 1, CV_AA);
+				circle(mergedChannels, it->averagePosition, BLOB_RADIUS*SHARPNESS, it->color, 1);
 				line(mergedChannels, (vertices[0] + vertices[1]), (vertices[2] + vertices[3]), it->color);
 				line(mergedChannels, (vertices[1] + vertices[2]), (vertices[3] + vertices[0]), it->color);
 			}
