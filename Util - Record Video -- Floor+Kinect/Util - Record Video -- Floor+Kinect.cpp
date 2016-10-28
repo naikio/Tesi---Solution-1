@@ -3,9 +3,6 @@
 #define NOMINMAX
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
-//#define PCL_VISUALIZER
-//#define DRAW_TILES
-
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
@@ -224,7 +221,7 @@ int AcquireDepthAndRGBFrames(AcquisitionKinect2& acq, IColorFrameReader* colorRe
 			}
 
 		// Qui si rimanda indietro risDef perchè sì (nel MAIN invece ris2)
-		depthMat = risDef.clone();
+		depthMat = ris2.clone();
 		//imshow("", depthMat);
 		//waitKey(30);
 		delete[] depthArray;
@@ -324,9 +321,9 @@ int _tmain(int argc, _TCHAR* argv[])
 		end = "_debug_" + end;
 #endif
 
-		imwrite("videos/1/RGB/rgb" + end, colorMat);
-		imwrite("videos/1/D/depth" + end, depthMat);
-		imwrite("videos/1/Floor/floor" + end, floor);
+		imwrite("videos/2/RGB/rgb" + end, colorMat);
+		imwrite("videos/2/D/depth" + end, depthMat);
+		imwrite("videos/2/Floor/floor" + end, floor);
 
 		//KinectRGBVideo << colorMat;
 		//KinectDVideo << depthMat;

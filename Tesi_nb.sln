@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Blob Tracking - Florimage +
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Util - Record Video -- Floor+Kinect", "Util - Record Video -- Floor+Kinect\Util - Record Video -- Floor+Kinect.vcxproj", "{0B14DC83-6249-4E9B-8FCD-2A752793081A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Offline Blob Tracking - Florimage + Kinect", "Offline Blob Tracking - Florimage + Kinect\Offline Blob Tracking - Florimage + Kinect.vcxproj", "{CA7B2185-E808-4823-8F72-3FD737B0464A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -27,6 +29,10 @@ Global
 		{0B14DC83-6249-4E9B-8FCD-2A752793081A}.Debug|Win32.Build.0 = Debug|Win32
 		{0B14DC83-6249-4E9B-8FCD-2A752793081A}.Release|Win32.ActiveCfg = Release|Win32
 		{0B14DC83-6249-4E9B-8FCD-2A752793081A}.Release|Win32.Build.0 = Release|Win32
+		{CA7B2185-E808-4823-8F72-3FD737B0464A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CA7B2185-E808-4823-8F72-3FD737B0464A}.Debug|Win32.Build.0 = Debug|Win32
+		{CA7B2185-E808-4823-8F72-3FD737B0464A}.Release|Win32.ActiveCfg = Release|Win32
+		{CA7B2185-E808-4823-8F72-3FD737B0464A}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

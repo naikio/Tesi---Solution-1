@@ -793,7 +793,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		//Buffers will be used as containers for raw data
 		vector<RGBQUAD> colorBuffer(colorWidth * colorHeight);
 		vector<UINT16> depthBuffer(depthWidth * depthHeight);
-		vector<UINT16> foregroundDepthBuffer(depthBuffer); //BGD Subtraction result
 
 		ICoordinateMapper* coordinateMapper = acq.GetCoordinateMapper(); //init coordinate mapper to map color on depth data
 		IColorFrameReader* colorReader = acq.GetColorReader();
@@ -801,6 +800,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		if (AcquireDepthAndRGBFrames(acq, colorReader, depthReader, coordinateMapper, colorMat, colorBuffer, depthMat, depthBuffer) != 0){
 			continue;
 		}
+
+		vector<UINT16> foregroundDepthBuffer(depthBuffer); //BGD Subtraction result
 
 		/////////////////////////////
 		//////////// BGD SUBTRACTION
