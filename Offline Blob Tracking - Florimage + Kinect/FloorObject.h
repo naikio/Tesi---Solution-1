@@ -16,6 +16,7 @@ typedef struct FloorObject{
 	vector<Point> contour;
 	RotatedRect box;
 	Point2f averagePosition;
+	vector<Point2i> positions;
 	Scalar color;
 	int visualCounter = 0;
 	State state = alpha;

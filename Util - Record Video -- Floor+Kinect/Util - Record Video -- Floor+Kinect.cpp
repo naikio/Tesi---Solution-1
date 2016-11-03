@@ -249,9 +249,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	// OPENCV RECORDING STUFF
 	int fourcc = CV_FOURCC('M', 'J', 'P', 'G');
 	String recPath = "C:/Users/Niccolò/Documents/Visual Studio 2013/Projects/Tesi_nb/Util - Record Video -- Floor+Kinect\videos";
-	VideoWriter KinectRGBVideo("videos/kinect_RGB.avi", fourcc, 30, Size(colorWidth, colorHeight), true);
-	VideoWriter KinectDVideo("videos/kinect_D.avi", fourcc, 30, Size(depthWidth, depthHeight), true);
-	VideoWriter FloorVideo("videos/floor.avi", fourcc, 30, Size(420, 300), 0);
+	//VideoWriter KinectRGBVideo("videos/kinect_RGB.avi", fourcc, 30, Size(colorWidth, colorHeight), true);
+	//VideoWriter KinectDVideo("videos/kinect_D.avi", fourcc, 30, Size(depthWidth, depthHeight), true);
+	//VideoWriter FloorVideo("videos/floor.avi", fourcc, 30, Size(420, 300), 0);
 
 	//Socket opening and connection
 	WSADATA wsa;
@@ -321,9 +321,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		end = "_debug_" + end;
 #endif
 
-		imwrite("videos/2/RGB/rgb" + end, colorMat);
-		imwrite("videos/2/D/depth" + end, depthMat);
-		imwrite("videos/2/Floor/floor" + end, floor);
+		String num = "2";
+		imwrite("videos/" + num + "/RGB/rgb" + end, colorMat);
+		imwrite("videos/" + num + "/D/depth" + end, depthMat);
+		imwrite("videos/" + num + "/Floor/floor" + end, floor);
 
 		//KinectRGBVideo << colorMat;
 		//KinectDVideo << depthMat;
