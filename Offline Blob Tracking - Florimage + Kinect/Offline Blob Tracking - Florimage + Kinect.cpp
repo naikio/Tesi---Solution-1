@@ -13,7 +13,7 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 8
+#define ALPHA_PARAM 35
 #define DEATH_PARAM 25
 #define T_0 0.5
 #define LAMBDA 0.75 //must be a value between 0 and 1
@@ -831,7 +831,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			vector<vector<double>> costMatrix;
 			UpdateModelGlobalMinCost(modelBlobs, currentBlobs, costMatrix);
 			vector<vector<double>>().swap(costMatrix);
-			// UpdateModelPositions(modelBlobs);      ORA LO FA GIA' DURANTE LA FASE DI MATCHING
 			UpdateModelState(modelBlobs, deadBlobs);
 		}
 
