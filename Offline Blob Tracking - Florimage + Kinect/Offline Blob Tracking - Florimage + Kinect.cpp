@@ -13,7 +13,7 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 35
+#define ALPHA_PARAM 7
 #define DEATH_PARAM 25
 #define T_0 0.5
 #define LAMBDA 0.75 //must be a value between 0 and 1
@@ -617,6 +617,11 @@ void UpdateModelState(vector<FloorObject>& modelBlobs, vector<FloorObject>& dead
 
 }
 
+void ResetTracklets(vector<FloorObject>& modelBlobs, vector<vector<FloorObject>>& trackletBlobs){
+	trackletBlobs.push_back(modelBlobs);
+	vector<FloorObject>().swap(modelBlobs);
+}
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	//Custom Kinect Acquisition
@@ -653,6 +658,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	vector<FloorObject> currentBlobs; //container of objects detected on the floor
 	vector<FloorObject> modelBlobs;
 	vector<FloorObject> deadBlobs;
+	vector<vector<FloorObject>> trackletBlobs;
 
 #ifdef PCL_VISUALIZER //Visualizer init
 	//Init PCL Visualizer
@@ -676,6 +682,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	sort(fnames_depth.begin(), fnames_depth.end(), doj::alphanum_less<String>());
 	sort(fnames_floor.begin(), fnames_floor.end(), doj::alphanum_less<String>());
 	int n_frames = 0;
+	int tracklet_counter = 0;
 
 	// Main loop: kinect image processing
 	while (!GetAsyncKeyState(VK_ESCAPE) && (n_frames < fnames_rgb.size())){
@@ -913,15 +920,29 @@ int _tmain(int argc, _TCHAR* argv[])
 		vector<UINT16>().swap(foregroundDepthBuffer);
 		pointCloud->clear();
 		n_frames++;
+		tracklet_counter++;
+		if (tracklet_counter >= 10){
+			ResetTracklets(modelBlobs, trackletBlobs);
+			tracklet_counter = 0;
+		}
 	}
 
 	deadBlobs.erase(remove_if(deadBlobs.begin(), deadBlobs.end(), [](const FloorObject& obj) {return obj.positions.size() <= 1; }), deadBlobs.end());
 
 
 	Mat trackletViewer(300, 420, CV_8UC3, Scalar(0, 0, 0));
+
 	for (int i = 0; i < modelBlobs.size(); i++){
 		for (int j = 0; j < modelBlobs[i].positions.size() - 1; j++){
 			line(trackletViewer, modelBlobs[i].positions[j], modelBlobs[i].positions[j + 1], modelBlobs[i].color, 1);
+		}
+	}
+	for (int i = 0; i < trackletBlobs.size(); i++){
+		trackletBlobs[i].erase(remove_if(trackletBlobs[i].begin(), trackletBlobs[i].end(), [](const FloorObject& obj) {return obj.positions.size() <= 1; }), trackletBlobs[i].end());
+		for (int j = 0; j < trackletBlobs[i].size(); j++){
+			for (int k = 0; k < trackletBlobs[i][j].positions.size() - 1; k++){
+				line(trackletViewer, trackletBlobs[i][j].positions[k], trackletBlobs[i][j].positions[k + 1], trackletBlobs[i][j].color, 1);
+			}
 		}
 	}
 	for (int i = 0; i < deadBlobs.size(); i++){
