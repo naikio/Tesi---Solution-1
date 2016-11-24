@@ -13,8 +13,8 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 35
-#define DEATH_PARAM 25
+#define ALPHA_PARAM 20
+#define DEATH_PARAM 30
 #define T_0 0.5
 #define LAMBDA 0.75 //must be a value between 0 and 1
 
@@ -764,10 +764,10 @@ int _tmain(int argc, _TCHAR* argv[])
 #else 
 		//If variable is false, we set the coefficients manually and use them for the projection
 		coefficients->values.resize(4);
-		coefficients->values[0] = -0.00424754;
-		coefficients->values[1] = -0.981478;
-		coefficients->values[2] = 0.19153;
-		coefficients->values[3] = -1.11181;
+		coefficients->values[0] = 0.00220747;
+		coefficients->values[1] = -0.974533;
+		coefficients->values[2] = 0.224231;
+		coefficients->values[3] = -1.09922;
 #endif
 
 		////////////////////////////

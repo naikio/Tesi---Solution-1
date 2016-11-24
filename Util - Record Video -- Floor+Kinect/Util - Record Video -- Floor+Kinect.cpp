@@ -286,6 +286,9 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	// Main loop: kinect image processing
 	int k = 0;
+	int num;
+	cout << "Vid number: ";
+	cin >> num;
 	while (!GetAsyncKeyState(VK_ESCAPE)){
 		//Socket request and floor image retrieval
 		message = "f"; //Request: "f" asks for a frame
@@ -321,10 +324,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		end = "_debug_" + end;
 #endif
 
-		String num = "2";
-		imwrite("videos/" + num + "/RGB/rgb" + end, colorMat);
-		imwrite("videos/" + num + "/D/depth" + end, depthMat);
-		imwrite("videos/" + num + "/Floor/floor" + end, floor);
+
+		imwrite("videos/" + to_string(num) + "/RGB/rgb" + end, colorMat);
+		imwrite("videos/" + to_string(num) + "/D/depth" + end, depthMat);
+		imwrite("videos/" + to_string(num) + "/Floor/floor" + end, floor);
 
 		//KinectRGBVideo << colorMat;
 		//KinectDVideo << depthMat;

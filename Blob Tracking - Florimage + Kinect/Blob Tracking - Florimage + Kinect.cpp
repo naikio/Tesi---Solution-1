@@ -857,10 +857,10 @@ int _tmain(int argc, _TCHAR* argv[])
 #else 
 		//If variable is false, we set the coefficients manually and use them for the projection
 		coefficients->values.resize(4);
-		coefficients->values[0] = -0.00424754;
-		coefficients->values[1] = -0.981478;
-		coefficients->values[2] = 0.19153;
-		coefficients->values[3] = -1.11181;
+		coefficients->values[0] = 0.00220747;
+		coefficients->values[1] = -0.974533;
+		coefficients->values[2] = 0.224231;
+		coefficients->values[3] = -1.09922;
 #endif
 
 		////////////////////////////
