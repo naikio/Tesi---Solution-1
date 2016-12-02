@@ -13,10 +13,12 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 20
-#define DEATH_PARAM 30
-#define T_0 0.5
-#define LAMBDA 0.75 //must be a value between 0 and 1
+#define ALPHA_PARAM 25
+#define DEATH_PARAM 8
+#define T_0 0
+#define T_MIN 0.0
+#define LAMBDA_UP 0.75 //must be a value between 0 and 1
+#define LAMBDA_DOWN 0.95 //must be a value between 0 and 1
 
 #define BLOB_RADIUS 0.4
 
@@ -322,7 +324,7 @@ void FindFloorBlobsContours(Mat& floor, int binaryThreshold, vector<FloorObject>
 			blob_temp.color = Scalar(b, g, r);
 			//temp.positions.push_back(box.center);
 			blob_temp.averagePosition = box.center;
-			blob_temp.visualCounter = 0;
+			blob_temp.visualCounter = 1;
 			blob_temp.confidence = T_0;
 			floorBlobs.push_back(blob_temp);
 		}
@@ -467,6 +469,7 @@ void UpdateBlobColorDistribution(FloorObject& currentBlob, FloorObject& modelBlo
 
 void UpdateAveragePositionOfModelBlob(FloorObject& modelBlob){
 
+	/*
 	//update average position:
 	Point2f p = modelBlob.averagePosition;
 	Point2f new_p = modelBlob.box.center;
@@ -475,15 +478,42 @@ void UpdateAveragePositionOfModelBlob(FloorObject& modelBlob){
 	modelBlob.averagePosition = Point2f(((p.x + (2 * new_p.x)) / 3), (p.y + (2 * new_p.y)) / 3);
 	//modelBlob.averagePosition.x -= deltaX;
 	//modelBlob.averagePosition.y -= deltaY;
+	*/
+
+	//NEW AVERAGE POSITION
+	int maxPositions = min((int)modelBlob.positions.size(), 3);
+	Point2f temp(0,0);
+
+	vector<Point2i>::reverse_iterator i = modelBlob.positions.rbegin();
+	float deltaX = (i->x - (i+1)->x) / 2;
+	float deltaY = (i->y - (i+1)->y) / 2;
+	for (int j = 0; j < maxPositions; j++){
+		temp.x += (i + j)->x;
+		temp.y += (i + j)->y;
+	}
+
+	temp.x /= maxPositions;
+	temp.y /= maxPositions;
+
+	temp.x = i->x + deltaX;
+	temp.y = i->y + deltaY;
+
+	modelBlob.averagePosition = temp;
 
 }
 
 void UpdateConfidenceScore(FloorObject& modelBlob){
 	
 	if (modelBlob.state == stable || modelBlob.state == hidden){
-		double modifier;
-		(modelBlob.visualCounter <= 0) ? modifier = 0 : modifier = 1;
-		modelBlob.confidence = modelBlob.confidence*LAMBDA + modifier*(1 - LAMBDA);
+		if (modelBlob.visualCounter <= 0){
+			// Decrease confidence
+			modelBlob.confidence = max(modelBlob.confidence*(LAMBDA_DOWN), T_MIN);
+		}
+		else {
+			// Increase confidence
+			modelBlob.confidence = max(modelBlob.confidence*LAMBDA_UP + (1 - LAMBDA_UP), T_MIN);
+		}
+		//modelBlob.confidence = max(modelBlob.confidence*LAMBDA + zero_or_one*(1 - LAMBDA), T_MIN);
 	}
 }
 
@@ -502,6 +532,8 @@ void AssociateCurrentBlobWithModel(FloorObject& currentBlob, FloorObject& modelB
 }
 
 void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObject>& currentBlobs, vector<vector<double>>& costMatrix){
+
+	int prova = currentBlobs.size();
 
 	ComputeCostMatrix(costMatrix, modelBlobs, currentBlobs);
 
@@ -538,12 +570,9 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 	MinCostMatching(costMatrix, currentMatchings, modelMatchings);
 
 	for (int i = 0; i < currentBlobs.size(); i++){
-
-		PointCloud<PointXYZRGB>::Ptr pCloudTemp;		
 		
 		if (costMatrix[i][currentMatchings[i]] == 0){
 			//new Blob -> state: ALPHA
-			currentBlobs[i].visualCounter++;
 			modelBlobs.push_back(currentBlobs[i]);
 		}
 		else {
@@ -561,7 +590,8 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 
 			if (costMatrix[modelMatchings[i]][i] == 0){
 				// State: HIDDEN
-				(modelBlobs[i].visualCounter <= 0) ? (modelBlobs[i].visualCounter--) : (modelBlobs[i].visualCounter = 0);
+				if (modelBlobs[i].state != alpha && modelBlobs[i].visualCounter != 1)
+					(modelBlobs[i].visualCounter <= 0) ? (modelBlobs[i].visualCounter--) : (modelBlobs[i].visualCounter = 0);
 			}
 		}
 	}
@@ -640,9 +670,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	// folder management
 	vector<String> fnames_depth, fnames_rgb, fnames_floor;
 	String folder = "C:/Users/Niccolò/Documents/Visual Studio 2013/Projects/Tesi_nb/Util - Record Video -- Floor+Kinect/videos";
-	int vidNumber;
+	int vidNumber, wait_key;
 	cout << "Vid number: ";
 	cin >> vidNumber;
+	cout << "Wait key value: ";
+	cin >> wait_key;
 
 	folder = folder + "/" + to_string(vidNumber) + "/";
 	cout << folder << endl;
@@ -690,6 +722,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 #endif
 		floor = imread(fnames_floor[n_frames], 0);
+		// Morphology: OPEN
 		imshow("Floor", floor);
 
 		/////////////////////////////
@@ -821,7 +854,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		else {
 			//updatemodel, by confronting new Blobs with old ones
-			
+
 			/////////////////
 			// BEST MATCH FIRST
 			//UpdateModelBestMatchFirst(modelBlobs, currentBlobs);
@@ -898,7 +931,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		createTrackbar("Sharpness", "Merged Channels", &SHARPNESS, 100);
 		imshow("Projection", floorProjection);
 		imshow("Merged Channels", mergedChannels);
-		waitKey(10);
+		waitKey(wait_key);
 
 #ifdef PCL_VISUALIZER
 		// PCL Visualizer
@@ -917,18 +950,21 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	deadBlobs.erase(remove_if(deadBlobs.begin(), deadBlobs.end(), [](const FloorObject& obj) {return obj.positions.size() <= 1; }), deadBlobs.end());
 
-
 	Mat trackletViewer(300, 420, CV_8UC3, Scalar(0, 0, 0));
 	for (int i = 0; i < modelBlobs.size(); i++){
 		for (int j = 0; j < modelBlobs[i].positions.size() - 1; j++){
 			line(trackletViewer, modelBlobs[i].positions[j], modelBlobs[i].positions[j + 1], modelBlobs[i].color, 1);
 		}
 	}
+
+	/*
+	SHOW DEAD BLOBS
 	for (int i = 0; i < deadBlobs.size(); i++){
-		for (int j = 0; j < deadBlobs[i].positions.size() - 1; j++){
-			line(trackletViewer, deadBlobs[i].positions[j], deadBlobs[i].positions[j + 1], deadBlobs[i].color, 1);
-		}
+	for (int j = 0; j < deadBlobs[i].positions.size() - 1; j++){
+	line(trackletViewer, deadBlobs[i].positions[j], deadBlobs[i].positions[j + 1], deadBlobs[i].color, 1);
 	}
+	}
+	*/
 
 	imshow("tracklet", trackletViewer);
 	waitKey();

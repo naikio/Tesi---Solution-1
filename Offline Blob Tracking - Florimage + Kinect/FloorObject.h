@@ -18,7 +18,7 @@ typedef struct FloorObject{
 	Point2f averagePosition;
 	vector<Point2i> positions;
 	Scalar color;
-	int visualCounter = 0;
+	int visualCounter = 1;
 	State state = alpha;
 	PointXYZRGB centroid;
 	vector<float> bgrHistogram;
