@@ -13,7 +13,7 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 25
+#define ALPHA_PARAM 15
 #define DEATH_PARAM 8
 #define T_0 0
 #define T_MIN 0.0
@@ -549,7 +549,7 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 			//must add columns (there will be new blobs)
 			for (int i = 0; i < costMatrix.size(); i++){
 				for (int j = modelBlobs.size(); j < currentBlobs.size(); j++)
-					costMatrix[i].push_back(0);
+					costMatrix[i].push_back(DBL_MAX);
 			}
 		}
 		else if (modelBlobs.size() > currentBlobs.size()){
@@ -559,7 +559,7 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 			// 8	8	2	4	6
 			//must add rows (there will be hidden blobs)
 			for (int i = currentBlobs.size(); i < modelBlobs.size(); i++){
-				costMatrix.push_back(vector<double>(modelBlobs.size(), 0));
+				costMatrix.push_back(vector<double>(modelBlobs.size(), DBL_MAX));
 			}
 		}
 	}
@@ -571,7 +571,7 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 
 	for (int i = 0; i < currentBlobs.size(); i++){
 		
-		if (costMatrix[i][currentMatchings[i]] == 0){
+		if (costMatrix[i][currentMatchings[i]] == DBL_MAX){
 			//new Blob -> state: ALPHA
 			modelBlobs.push_back(currentBlobs[i]);
 		}
@@ -588,9 +588,9 @@ void UpdateModelGlobalMinCost(vector<FloorObject>& modelBlobs, vector<FloorObjec
 	else {
 		for (int i = 0; i < modelBlobs.size(); i++){
 
-			if (costMatrix[modelMatchings[i]][i] == 0){
+			if (costMatrix[modelMatchings[i]][i] == DBL_MAX){
 				// State: HIDDEN
-				if (modelBlobs[i].state != alpha && modelBlobs[i].visualCounter != 1)
+				if (!(modelBlobs[i].state == alpha && modelBlobs[i].visualCounter == 1))
 					(modelBlobs[i].visualCounter <= 0) ? (modelBlobs[i].visualCounter--) : (modelBlobs[i].visualCounter = 0);
 			}
 		}
