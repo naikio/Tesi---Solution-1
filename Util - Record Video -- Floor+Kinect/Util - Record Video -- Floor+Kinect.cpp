@@ -230,6 +230,52 @@ int AcquireDepthAndRGBFrames(AcquisitionKinect2& acq, IColorFrameReader* colorRe
 	return 0;
 }
 
+int AcquireBodyFrameAndJoints(AcquisitionKinect2& acq, IBodyFrameReader* bodyReader, ICoordinateMapper* coordinateMapper, int num, int k){
+	// BODY reader
+	IBodyFrame* bodyFrame = NULL;
+	HRESULT hResult = S_OK;
+	hResult = bodyReader->AcquireLatestFrame(&bodyFrame);
+
+	IBody* ppBodies[BODY_COUNT] = { 0 };
+	if (SUCCEEDED(hResult))
+	{
+		// Saves bodies information into ppBodies var
+		hResult = bodyFrame->GetAndRefreshBodyData(_countof(ppBodies), ppBodies);
+
+		SafeRelease(bodyFrame);
+	}
+
+	fstream bodyStream;
+	bodyStream.open("videos/" + to_string(num) + "/Bodies/ppBodies" + to_string(k) + ".bin", ios::out);
+
+	for (int i = 0; i < BODY_COUNT; i++){
+		IBody* pBody = ppBodies[i];
+
+		if (pBody)
+		{
+			BOOLEAN bTracked = false;
+			pBody->get_IsTracked(&bTracked);
+			UINT64 id;
+			pBody->get_TrackingId(&id);
+
+			Joint joints[JointType_Count];
+
+			if (bTracked){
+				pBody->GetJoints(_countof(joints), joints);
+				for (int i = 0; i < 25; i++){
+					bodyStream << joints[i].Position.X << "\t";
+					bodyStream << joints[i].Position.Y << "\t";
+					bodyStream << joints[i].Position.Z << "\t";
+					bodyStream << joints[i].TrackingState << "\t" << "\n";
+				}
+				bodyStream << "\n";
+			}
+		}
+	}
+	bodyStream.close();
+	return 0;
+}
+
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -311,20 +357,27 @@ int _tmain(int argc, _TCHAR* argv[])
 		vector<UINT16> depthBuffer(depthWidth * depthHeight);
 		vector<UINT16> foregroundDepthBuffer(depthBuffer); //BGD Subtraction result
 
+
 		ICoordinateMapper* coordinateMapper = acq.GetCoordinateMapper(); //init coordinate mapper to map color on depth data
 		IColorFrameReader* colorReader = acq.GetColorReader();
 		IDepthFrameReader* depthReader = acq.GetDepthReader();
+		IBodyFrameReader* bodyReader = acq.GetBodyReader();
+		Joint* ppBodiesJoints[BODY_COUNT];
+		for (int i = 0; i < BODY_COUNT; i++){
+			ppBodiesJoints[i] = new Joint[JointType_Count];
+		}
 		if (AcquireDepthAndRGBFrames(acq, colorReader, depthReader, coordinateMapper, colorMat, colorBuffer, depthMat, depthBuffer) != 0){
 			continue;
 		}
 
-		String end = to_string(k) + ".png";
+		if (AcquireBodyFrameAndJoints(acq, bodyReader, coordinateMapper, num, k) != 0){
+			continue;
+		}
 
+		String end = to_string(k) + ".png";
 #ifdef _DEBUG
 		end = "_debug_" + end;
 #endif
-
-
 		imwrite("videos/" + to_string(num) + "/RGB/rgb" + end, colorMat);
 		imwrite("videos/" + to_string(num) + "/D/depth" + end, depthMat);
 		imwrite("videos/" + to_string(num) + "/Floor/floor" + end, floor);
@@ -337,7 +390,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		imshow("RGB", colorMat);
 		imshow("Depth", depthMat);
 		imshow("Floor", floor);
-		waitKey(30);
+		waitKey(1);
 		k++;
 	}
 	// End Processing
