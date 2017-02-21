@@ -4,7 +4,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #define BGD_SUBTRACTION
-#define CROP_BOX_FILTERING
+//#define CROP_BOX_FILTERING
 //#define GET_PLANE_COEFFICIENTS  //used to search for floor plane coefficients (useful to retrieve plane coefficients the 1st time)
 #define PLANAR_PROJECTION false
 //#define PCL_VISUALIZER
@@ -19,8 +19,6 @@
 #define LAMBDA 0.75 //must be a value between 0 and 1
 
 #define BLOB_RADIUS 0.4
-
-int SHARPNESS = 100;
 
 #include <Windows.h>
 //OPENCV 2.4.10
@@ -49,6 +47,20 @@ int SHARPNESS = 100;
 
 //Custom Algorithms
 #include "bipartite-mincost.h"
+
+int SHARPNESS = 100;
+// Coordinates of the top left corner of the floor (x,y,z of Kinect's camera space)
+Eigen::Vector3f originPointInCameraSpace = Eigen::Vector3f(1.42858958, 0.241279319, 4.67700005);
+//float topLeftX = -0.55;
+//float topLeftY = -0.75;
+//float bottomRightX = topLeftX + 4.20; //floor is 4.20 x 3.00 m
+//float bottomRightY = topLeftY + 3.00;
+float topLeftX = 0;
+float topLeftY = 0;
+float bottomRightX = 3.00;
+float bottomRightY = 4.20;
+float floorWidth = bottomRightX - topLeftX;
+float floorHeight = bottomRightY - topLeftY;
 
 using namespace cv;
 using namespace std;
@@ -845,7 +857,11 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 
 		//Process Floor image: resize, draw tiles, show
-		resize(floor, floor, Size(static_cast<int>(4.2*SHARPNESS), static_cast<int>(3.0*SHARPNESS)), 0, 0, cv::INTER_CUBIC);
+		resize(floor, floor, Size(static_cast<int>(floorHeight*SHARPNESS), static_cast<int>(floorWidth*SHARPNESS)), 0, 0, cv::INTER_CUBIC);
+		//Need to rotate Image 90° CCW
+		transpose(floor, floor);
+		flip(floor, floor, 0);
+
 #ifdef DRAW_TILES
 		for (int r = 0; r < floor.rows; r++){
 			for (int c = 0; c < floor.cols; c++){
@@ -946,10 +962,10 @@ int _tmain(int argc, _TCHAR* argv[])
 #else 
 		//If variable is false, we set the coefficients manually and use them for the projection
 		coefficients->values.resize(4);
-		coefficients->values[0] = 0.00220747;
-		coefficients->values[1] = -0.974533;
-		coefficients->values[2] = 0.224231;
-		coefficients->values[3] = -1.09922;
+		coefficients->values[0] = 0.0382139;
+		coefficients->values[1] = -0.91068;
+		coefficients->values[2] = 0.411342;
+		coefficients->values[3] = -1.76073;
 #endif
 
 		////////////////////////////
@@ -975,7 +991,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		Eigen::Affine3f transformation;
 		getTransformationFromTwoUnitVectorsAndOrigin(Eigen::Vector3f(0, -coefficients->values[3] / coefficients->values[1], 0), // Y direction (intersection with XZ plane)
 			Eigen::Vector3f(-coefficients->values[0], coefficients->values[1], coefficients->values[2]), // Z direction (normal vector to the floor plane)
-			Eigen::Vector3f(0.893489282, -0.618893445, 2.42300010), // Origin
+			originPointInCameraSpace, // Origin
 			transformation
 			);
 		transformPointCloud(*pointCloud, *pointCloud, transformation);
@@ -984,14 +1000,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		///////////////////////////////////////
 		///////////		POINTCLOUD TO MAT
 		//////////////////////////////////////
-
-		//At this point, we fill the Mat to revert to a grayscale image of the floor projection
-		// offsets: translation from the Origin point
-		float topLeftX = -0.55;
-		float topLeftY = -0.75;
-		float bottomRightX = topLeftX + 4.20; //floor is 4.20 x 3.00 m
-		float bottomRightY = topLeftY + 3.00;
-		Mat floorProjection(static_cast<int>(3.0 * SHARPNESS), static_cast<int>(4.2*SHARPNESS), CV_16UC1, Scalar(0, 0, 0));
+		//Now we fill the Mat to revert to a grayscale image of the floor projection
+		Mat floorProjection(static_cast<int>(floorHeight * SHARPNESS), static_cast<int>(floorWidth*SHARPNESS), CV_16UC1, Scalar(0, 0, 0));
 
 		PointCloudXYPlaneToMat(pointCloud, floorProjection, topLeftX, topLeftY, bottomRightX, bottomRightY, depthHeight, depthWidth);
 
@@ -1060,7 +1070,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 
 		//Show results
-		resize(mergedChannels, mergedChannels, Size(1200, 900), CV_INTER_CUBIC);
+		resize(mergedChannels, mergedChannels, Size(900, 1260), CV_INTER_CUBIC);
 		namedWindow("Merged Channels", 1);
 		createTrackbar("Sharpness", "Merged Channels", &SHARPNESS, 100);
 		imshow("Projection", floorProjection);

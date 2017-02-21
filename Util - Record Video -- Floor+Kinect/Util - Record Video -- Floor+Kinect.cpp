@@ -349,6 +349,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		resize(floor, floor, Size(static_cast<int>(4.2*SHARPNESS), static_cast<int>(3.0*SHARPNESS)), 0, 0, cv::INTER_CUBIC);
 
+		//Need to rotate Image 90° CCW
+		transpose(floor, floor);
+		flip(floor, floor, 0);
+
 		/////////////////////////////
 		////////// KINECT ACQUISITION
 		/////////////////////////////

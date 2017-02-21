@@ -22,9 +22,6 @@
 
 #define BLOB_RADIUS 0.4
 
-int SHARPNESS = 100;
-
-
 #include <Windows.h>
 //OPENCV 2.4.10
 #include <opencv2\opencv.hpp>
@@ -51,6 +48,10 @@ int SHARPNESS = 100;
 //Custom Algorithms
 #include "bipartite-mincost.h"
 #include "alphanum.hpp"
+
+int SHARPNESS = 100;
+// Coordinates of the top left corner of the floor (x,y,z of Kinect's camera space)
+Eigen::Vector3f originPointInCameraSpace = Eigen::Vector3f(1.42858958, 0.241279319, 4.67700005);
 
 using namespace cv;
 using namespace std;
@@ -193,8 +194,8 @@ void FillPointCloudWithDepthAndColorPoints(PointCloud<PointXYZRGB>::Ptr pointClo
 			DepthSpacePoint depthSpacePoint = { static_cast<float>(x), static_cast<float>(y) };
 			UINT16 depth = foregroundDepthBuffer[y * depthWidth + x];
 			//if depth is 0, this points belong to the background: we dont need them
-			if (depth == 0)
-				continue;
+			//if (depth == 0)
+			//	continue;
 
 			// Coordinate Mapping Depth to Color Space, and Setting PointCloud RGB
 			ColorSpacePoint colorSpacePoint = { 0.0f, 0.0f };
@@ -861,10 +862,10 @@ int _tmain(int argc, _TCHAR* argv[])
 #else 
 		//If variable is false, we set the coefficients manually and use them for the projection
 		coefficients->values.resize(4);
-		coefficients->values[0] = 0.00220747;
-		coefficients->values[1] = -0.974533;
-		coefficients->values[2] = 0.224231;
-		coefficients->values[3] = -1.09922;
+		coefficients->values[0] = 0.0382139;
+		coefficients->values[1] = -0.91068;
+		coefficients->values[2] = 0.411342;
+		coefficients->values[3] = -1.76073;
 #endif
 
 		////////////////////////////
@@ -890,7 +891,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		Eigen::Affine3f transformation;
 		getTransformationFromTwoUnitVectorsAndOrigin(Eigen::Vector3f(0, -coefficients->values[3] / coefficients->values[1], 0), // Y direction (intersection with XZ plane)
 			Eigen::Vector3f(-coefficients->values[0], coefficients->values[1], coefficients->values[2]), // Z direction (normal vector to the floor plane)
-			Eigen::Vector3f(0.893489282, -0.618893445, 2.42300010), // Origin
+			originPointInCameraSpace, // Origin
 			transformation
 			);
 		transformPointCloud(*pointCloud, *pointCloud, transformation);
