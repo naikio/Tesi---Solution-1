@@ -4,8 +4,8 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #define BGD_SUBTRACTION
-#define CROP_BOX_FILTERING
-#define PLANAR_PROJECTION false
+//#define CROP_BOX_FILTERING
+//#define PLANAR_PROJECTION false
 //#define PCL_VISUALIZER
 //#define DRAW_TILES
 //#define GET_PLANE_COEFFICIENTS  //used to search for floor plane coefficients (useful to retrieve plane coefficients the 1st time)
@@ -13,7 +13,7 @@
 #define BEST_MATCH_FIRST 1
 #define HUNGARIAN_MIN_COST 2
 
-#define ALPHA_PARAM 15
+#define ALPHA_PARAM 9
 #define DEATH_PARAM 8
 #define T_0 0
 #define T_MIN 0.0
@@ -52,6 +52,13 @@
 int SHARPNESS = 100;
 // Coordinates of the top left corner of the floor (x,y,z of Kinect's camera space)
 Eigen::Vector3f originPointInCameraSpace = Eigen::Vector3f(1.42858958, 0.241279319, 4.67700005);
+// Floor coordinates and dimensions
+float topLeftX = 0;
+float topLeftY = 0;
+float bottomRightX = 3.00;
+float bottomRightY = 4.20;
+float floorWidth = bottomRightX - topLeftX;
+float floorHeight = bottomRightY - topLeftY;
 
 using namespace cv;
 using namespace std;
@@ -194,8 +201,8 @@ void FillPointCloudWithDepthAndColorPoints(PointCloud<PointXYZRGB>::Ptr pointClo
 			DepthSpacePoint depthSpacePoint = { static_cast<float>(x), static_cast<float>(y) };
 			UINT16 depth = foregroundDepthBuffer[y * depthWidth + x];
 			//if depth is 0, this points belong to the background: we dont need them
-			//if (depth == 0)
-			//	continue;
+			if (depth == 0)
+				continue;
 
 			// Coordinate Mapping Depth to Color Space, and Setting PointCloud RGB
 			ColorSpacePoint colorSpacePoint = { 0.0f, 0.0f };
@@ -275,8 +282,8 @@ PointXYZRGB ComputePointCloudCentroid(PointCloud<PointXYZRGB>::Ptr pointCloud){
 	Eigen::Matrix3f eigen_vectors;
 
 	compute3DCentroid(*pointCloud, centroid);
-	computeCovarianceMatrix(*pointCloud, centroid, covariance_matrix);
-	eigen33(covariance_matrix, eigen_vectors, eigen_values);
+	//computeCovarianceMatrix(*pointCloud, centroid, covariance_matrix);
+	//eigen33(covariance_matrix, eigen_vectors, eigen_values);
 	PointXYZRGB pointCentroid;
 	pointCentroid.x = centroid[0];
 	pointCentroid.y = centroid[1];
@@ -708,6 +715,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	folder = folder + "/" + to_string(vidNumber) + "/";
 	cout << folder << endl;
 
+	//Output file for measurements
+	fstream reportFile;
+	reportFile.open("report_vid_" + to_string(vidNumber) + "_.txt", ios::out);
+	
+	//RANDOM initializer (for tracking IDs)
+	srand(time(NULL));
+
 	// Create PointCloud (plus its ColorHandler) and add it to the Visualizer
 	PointCloud<PointXYZRGB>::Ptr pointCloud(new PointCloud<PointXYZRGB>());
 	PointCloud<PointXYZRGB>::Ptr jointsPointCloud(new PointCloud<PointXYZRGB>());
@@ -897,17 +911,25 @@ int _tmain(int argc, _TCHAR* argv[])
 		transformPointCloud(*pointCloud, *pointCloud, transformation);
 		transformPointCloud(*jointsPointCloud, *jointsPointCloud, transformation);
 
+
+		////////////////////////////
+		////////// POINT CLOUD CENTROID
+		////////////////////////////
+
+		PointXYZRGB centroid;
+		if (pointCloud->size() != 0)
+		{
+			centroid = ComputePointCloudCentroid(pointCloud);
+
+		}
+
 		///////////////////////////////////////
 		///////////		POINTCLOUD TO MAT
 		//////////////////////////////////////
 
 		//At this point, we fill the Mat to revert to a grayscale image of the floor projection
 		// offsets: translation from the Origin point
-		float topLeftX = -0.55;
-		float topLeftY = -0.75;
-		float bottomRightX = topLeftX + 4.20; //floor is 4.20 x 3.00 m
-		float bottomRightY = topLeftY + 3.00;
-		Mat floorProjection(static_cast<int>(3.0 * SHARPNESS), static_cast<int>(4.2*SHARPNESS), CV_16UC1, Scalar(0, 0, 0));
+		Mat floorProjection(static_cast<int>(floorHeight * SHARPNESS), static_cast<int>(floorWidth*SHARPNESS), CV_16UC1, Scalar(0, 0, 0));
 
 		PointCloudXYPlaneToMat(pointCloud, floorProjection, topLeftX, topLeftY, bottomRightX, bottomRightY, depthHeight, depthWidth);
 
@@ -933,6 +955,33 @@ int _tmain(int argc, _TCHAR* argv[])
 			UpdateModelState(modelBlobs, deadBlobs);
 		}
 
+		// write measures to file
+		reportFile << n_frames << '\t';
+		reportFile << "GT" << '\t';
+		for (PointCloud<PointXYZRGB>::iterator it = jointsPointCloud->points.begin(); it < jointsPointCloud->points.end(); it++){
+			reportFile << it->x << '\t';
+			reportFile << it->y << '\t';
+			double CentroidJointDistance = sqrt(SquaredDistance(Point2d(centroid.x, centroid.y), Point2d(it->x, it->y)));
+			reportFile << "DISTANCE" << '\t';
+			reportFile << CentroidJointDistance << '\t';
+
+		}
+		reportFile << "MODEL" << '\t';
+		
+		for (int kk = 0; kk < modelBlobs.size(); kk++){
+			reportFile << modelBlobs[kk].state << '\t';
+			reportFile << modelBlobs[kk].box.center.x << '\t';
+			reportFile << modelBlobs[kk].box.center.y << '\t';
+			reportFile << modelBlobs[kk].color << '\t';
+		}
+
+		reportFile << "CENTROID" << '\t';
+		reportFile << centroid.x << '\t';
+		reportFile << centroid.y << '\t';	
+
+		reportFile << '\n';
+
+		cout << n_frames << endl;
 		cout << "Model blobs: " << modelBlobs.size() << endl;
 		cout << "Current blobs: " << currentBlobs.size() << endl;
 		cout << "Dead blobs: " << deadBlobs.size() << endl;
@@ -946,15 +995,15 @@ int _tmain(int argc, _TCHAR* argv[])
 			cout << "Confidence Score: " << modelBlobs[kk].confidence << endl;
 		}
 		cout << "-----------" << endl;
+		/*
 		for (int kk = 0; kk < currentBlobs.size(); kk++){
 			cout << "Current blob[" << kk << "]: " << endl;
 			cout << "State: " << currentBlobs[kk].state << endl;
 			cout << "Average pos: " << currentBlobs[kk].averagePosition << endl;
 			cout << "Color: " << currentBlobs[kk].color << endl;
 		}
+		*/
 		cout << endl << endl;
-		//fflush(stdin);
-		//cin.get();
 
 		//reconversion to Uchar for better visualization
 		floorProjection.convertTo(floorProjection, CV_8UC1);
@@ -992,15 +1041,20 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 
 		for (PointCloud<PointXYZRGB>::iterator it = jointsPointCloud->points.begin(); it < jointsPointCloud->points.end(); it++){
-			circle(mergedChannels, Point(((it->x - topLeftX) * SHARPNESS), ((it->y - topLeftY) * SHARPNESS)), BLOB_RADIUS*SHARPNESS / 4, Scalar(0, 255, 255), 5);
+			if ((it->x>0) && (it->y>0)){
+				circle(mergedChannels, Point(((it->x - topLeftX) * SHARPNESS), ((it->y - topLeftY) * SHARPNESS)), BLOB_RADIUS*SHARPNESS / 8, Scalar(0, 255, 255), 3);
+			}
 		}
 
+		circle(mergedChannels, Point(((centroid.x) * SHARPNESS), ((centroid.y) * SHARPNESS)), BLOB_RADIUS*SHARPNESS / 8, Scalar(255, 255, 0), 3);
+
 		//Show results
-		resize(mergedChannels, mergedChannels, Size(1200, 900), CV_INTER_CUBIC);
+		resize(mergedChannels, mergedChannels, Size(900, 1260), CV_INTER_CUBIC);
 		namedWindow("Merged Channels", 1);
 		createTrackbar("Sharpness", "Merged Channels", &SHARPNESS, 100);
 		imshow("Projection", floorProjection);
 		imshow("Merged Channels", mergedChannels);
+		imwrite("mergedChannels/mergedChannel" + to_string(n_frames) + ".png", mergedChannels);
 		waitKey(wait_key);
 
 #ifdef PCL_VISUALIZER
@@ -1039,6 +1093,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	imshow("tracklet", trackletViewer);
 	waitKey();
+	reportFile.close();
 
 	// End Processing
 	return 0;

@@ -102,6 +102,9 @@
     </ClCompile>
     <ClCompile Include="Util - Record Video -- Floor+Kinect.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Util - Record Video (One Person Detailed)\Util - Record Video (One Person Detailed).vcxproj.filters" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

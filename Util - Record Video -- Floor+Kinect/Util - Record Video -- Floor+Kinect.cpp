@@ -391,10 +391,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		//FloorVideo << floor;
 
 		//Show results
-		imshow("RGB", colorMat);
-		imshow("Depth", depthMat);
-		imshow("Floor", floor);
-		waitKey(1);
+		//imshow("RGB", colorMat);
+		//imshow("Depth", depthMat);
+		//imshow("Floor", floor);
+		//waitKey(1);
 		k++;
 	}
 	// End Processing

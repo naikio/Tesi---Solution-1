@@ -6,7 +6,7 @@
 #define BGD_SUBTRACTION
 //#define CROP_BOX_FILTERING
 //#define GET_PLANE_COEFFICIENTS  //used to search for floor plane coefficients (useful to retrieve plane coefficients the 1st time)
-#define PLANAR_PROJECTION false
+//#define PLANAR_PROJECTION
 //#define PCL_VISUALIZER
 //#define DRAW_TILES
 

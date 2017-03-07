@@ -57,4 +57,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Util - Record Video (One Person Detailed)\Util - Record Video (One Person Detailed).vcxproj.filters" />
+  </ItemGroup>
 </Project>
